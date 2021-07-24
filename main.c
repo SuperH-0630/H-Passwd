@@ -86,6 +86,7 @@ int main(int argc, char **argv) {
     else
         status = getPassWd();
 
+    free(key);
     if (!status)
         return EXIT_FAILURE;
     return EXIT_SUCCESS;
