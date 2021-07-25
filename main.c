@@ -24,6 +24,7 @@ bool getPassWd(void);
 
 int main(int argc, char **argv) {
     name = argv[0];
+    randomInit();
     initOpt(true, argc, argv, arg);
 
     for (getOpt(); opt_flat != 0; getOpt()) {
@@ -127,7 +128,7 @@ void printHelp(void) {
 
 }
 
-#define READ_WORD(key, len, key_name, re) do { printf("Please Enter The " key_name ":\n"); \
+#define READ_WORD(key, len, key_name, re) do { printf("Please Enter The " key_name ":"); \
     (key) = calloc((len) + 10, sizeof(char )); \
     fgets((key), (len) + 10, stdin); \
     if (strchr((key), '\n') == NULL) { \
@@ -137,13 +138,20 @@ void printHelp(void) {
     }while(0)
 
 bool setPassWd(void) {
-    char *account;
-    char *passwd;
-    char *note;
-    char *passwd_str;
+    char *account = NULL;
+    char *passwd = NULL;
+    char *note = NULL;
+    char *passwd_str = NULL;
 
     READ_WORD(account, 100, "Your account", ERROR1);
     READ_WORD(passwd, 100, "Your password", ERROR2);
+
+    if (*passwd == 0) {  // 未输入密码内容
+        free(passwd);
+        passwd = randomPasswd();  // 随机密码
+        printf("random password: '%s'\n", passwd);
+    }
+
     READ_WORD(note, 100, "Your note", ERROR3);
 
     passwd_str = makePasswordString(account, passwd, note);
@@ -164,10 +172,10 @@ bool setPassWd(void) {
 }
 
 bool getPassWd(void) {
-    char *account;
-    char *passwd;
-    char *note;
-    char *passwd_str;
+    char *account = NULL;
+    char *passwd = NULL;
+    char *note = NULL;
+    char *passwd_str = NULL;
 
     READ_WORD(passwd_str, 200, "Your Label", ERROR1);
 

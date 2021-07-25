@@ -27,4 +27,8 @@ bool getInfoFromPasswordString(char *passwd_base64, char **account, char **passw
 void printInfo(char *account, char *passwd, char *note);
 void printPasswdStr(char *account, char *passwd, char *note, char *passwd_str);
 
+void randomInit(void);
+unsigned long long getRandom(int min, int max);
+char *randomPasswd(void);
+
 #endif //H_PASSWD_MAIN_H
