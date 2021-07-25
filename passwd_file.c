@@ -293,7 +293,11 @@ void printContent(void) {
     struct Content *con = content;
     printf("********************\n");
     printf("Print all label in file.\n");
+#ifdef _MSC_VER
+    printf("total: %llu\n", content_size);
+#else
     printf("total: %lu\n", content_size);
+#endif
     printf("--------------------\n");
     for (int i = 0; i < content_size; i++, con = con->next)
         printf("%d. %s : name: %s, label: %s\n", i, con->date, con->name, con->passwd_str);

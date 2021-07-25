@@ -207,12 +207,21 @@ void printVersion(void) {
 }
 
 void printHelp(void) {
-    printf("Usage: %s <[option]..>\n", name);
+    printf("Usage: %s <[option]..> [key]\n", name);
     printf("Option: \n");
     printf(" -v --version       Show version.\n");
     printf(" -h --help          Show help.\n");
     printf(" -s --set-pw        Set Password.\n");
-    printf(" -g --get-pw        Get Password.\n\n");
+    printf(" -g --get-pw        Get Password.\n");
+    printf(" -t --tips          Print the key tips.\n");
+#ifndef INCLUDE_KEY
+    printf(" -i --in-file       Save and get passwd from file.\n");
+    printf(" -p --print-label   Prints all labels in the file.\n");
+    printf(" -d --delete-label  Delete labels in the file.\n");
+    printf(" --set-tips         Save or reset the key-tips in file.\n");
+    printf(" --delete-old       Update password and delete same-name old password.\n");
+#endif
+    printf("\n");
 
 #ifdef INCLUDE_KEY
     printf("!!! Exclusive custom user: %s !!!\n", UserName);

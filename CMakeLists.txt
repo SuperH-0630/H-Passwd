@@ -15,5 +15,5 @@ if (have_key)
     message(STATUS "KeyTips = " ${KeyTips})
 endif()
 
-add_definitions(-DVERSION="0.0.1" -DVERSION_INFO="H-Password, now start.")
+add_definitions(-DVERSION="1.0.0" -DVERSION_INFO="Spring, protect your password!")
 add_executable(H_Passwd main.c base64.c passwd.c argument.c random_passwd.c passwd_file.c md5.c)
