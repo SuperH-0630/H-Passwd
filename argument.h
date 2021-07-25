@@ -1,4 +1,4 @@
-#ifndef H_PASSWD_ARGUMENT_H
+﻿#ifndef H_PASSWD_ARGUMENT_H
 #define H_PASSWD_ARGUMENT_H
 #include <stdbool.h>
 

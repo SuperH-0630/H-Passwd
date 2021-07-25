@@ -1,4 +1,4 @@
-#include "main.h"
+﻿#include "main.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -119,7 +119,7 @@ void printInfo(char *account, char *passwd, char *note) {
     printf("Account: '%s'\n", account);
     printf("Password: '%s'\n", passwd);
     printf("Note: '%s'\n", note);
-    printf("H-Passwd: So that the password will not be forgotten.");
+    printf("H-Passwd: So that the password will not be forgotten.\n");
 }
 
 void printPasswdStr(char *account, char *passwd, char *note, char *passwd_str) {
@@ -128,5 +128,5 @@ void printPasswdStr(char *account, char *passwd, char *note, char *passwd_str) {
     printf("Password: '%s'\n", passwd);
     printf("Note: '%s'\n", note);
     printf("Label: '%s'\n", passwd_str);
-    printf("You can retrieve account information via label and key. (Include Account, Password and Note.)");
+    printf("You can retrieve account information via label and key. (Include Account, Password and Note.)\n");
 }

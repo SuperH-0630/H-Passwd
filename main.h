@@ -1,4 +1,4 @@
-#ifndef H_PASSWD_MAIN_H
+﻿#ifndef H_PASSWD_MAIN_H
 #define H_PASSWD_MAIN_H
 #include <stdbool.h>
 #include <stdlib.h>

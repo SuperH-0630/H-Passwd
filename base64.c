@@ -1,4 +1,4 @@
-#include "main.h"
+﻿#include "main.h"
 
 //定义base64编码表
 static char *base = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";  // base-64的基础编码 + 等号
