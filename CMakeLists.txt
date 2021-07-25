@@ -16,4 +16,4 @@ if (have_key)
 endif()
 
 add_definitions(-DVERSION="0.0.1" -DVERSION_INFO="H-Password, now start.")
-add_executable(H_Passwd main.c base64.c passwd.c argument.c random_passwd.c)
+add_executable(H_Passwd main.c base64.c passwd.c argument.c random_passwd.c passwd_file.c md5.c)

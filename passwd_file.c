@@ -1,0 +1,276 @@
+﻿#include "main.h"
+#include <stdio.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <inttypes.h>
+
+typedef uint64_t h_size_t;
+typedef char h_char;
+const char *path = NULL;  // 文件地址
+
+struct Content {
+    h_char *name;
+    h_char *passwd_str;
+    struct Content *next;
+};  // 链表
+
+struct Content *content = NULL;
+h_size_t content_size = 0;
+
+static size_t fread_str(h_char *dest, size_t size, FILE *fp) {
+    return fread(dest, sizeof(h_char), size, fp);
+}
+
+static size_t fwrite_str(h_char *dest, size_t size, FILE *fp) {
+    return fwrite(dest, sizeof(h_char), size, fp);
+}
+
+static size_t fread_size_t(h_size_t *dest, FILE *fp) {
+    return fread(dest, sizeof(h_size_t), 1, fp);
+}
+
+static size_t fwrite_size_t(h_size_t dest, FILE *fp) {
+    return fwrite(&dest, sizeof(h_size_t), 1, fp);
+}
+
+static h_char get_fread_char(FILE *fp) {
+    h_char ch;
+    size_t ret = fread(&ch, sizeof(h_char), 1, fp);
+    if (ret != 1)
+        return 0;
+    return ch;
+}
+
+static bool put_fwrite_enter(FILE *fp) {
+    static char const ch = '\n';
+    return fwrite(&ch, sizeof(h_char), 1, fp) == 1;
+}
+
+static bool readFileHead(FILE *fp, h_char *file_md5) {
+    size_t ret;
+    ret = fread_str(file_md5, MD5_STR_LEN + 1, fp);  // 先读取md5码, 包括NUL
+    if (ret < MD5_STR_LEN + 1)
+        return false;
+
+    if (fread_size_t(&content_size, fp) != 1)
+        return false;
+
+    if (get_fread_char(fp) != '\n')
+        return false;
+
+    return true;
+}
+
+static bool writeFileHead(FILE *fp, h_char *md5str) {
+    size_t ret;
+    ret = fwrite_str(md5str, MD5_STR_LEN + 1, fp);  // 写入NUL
+    if (ret < MD5_STR_LEN + 1)
+        return false;
+
+    if (fwrite_size_t(content_size, fp) != 1)
+        return false;
+
+    if (!put_fwrite_enter(fp))
+        return false;
+
+    return true;
+}
+
+static bool readFileInfo(FILE *fp, struct Content *con) {
+    size_t ret;
+    h_size_t name_size;
+    h_size_t passwd_str_size;
+    h_char *name = NULL;
+    h_char *passwd_str = NULL;
+
+    if (fread_size_t(&name_size, fp) != 1)
+        return false;
+
+    if (fread_size_t(&passwd_str_size, fp) != 1)
+        return false;
+
+    name = calloc(name_size, sizeof(h_char));  // 包含 NUL
+    passwd_str = calloc(passwd_str_size, sizeof(h_char));  // 包含 NUL
+
+    ret = fread_str(name, name_size, fp);
+    if (ret < name_size)
+        goto error;
+
+    ret = fread_str(passwd_str, passwd_str_size, fp);
+    if (ret < name_size)
+        goto error;
+
+    if (get_fread_char(fp) != '\n') {
+    error:
+        free(name);
+        free(passwd_str);
+        return false;
+    }
+
+    con->name = name;
+    con->passwd_str = passwd_str;
+    return true;
+}
+
+static bool writeFileInfo(FILE *fp, struct Content *con) {
+    size_t ret;
+    h_char *name = con->name;
+    h_char *passwd_str = con->passwd_str;
+    h_size_t passwd_str_size = strlen((char *)passwd_str);
+    h_size_t name_size = strlen((char *)name);
+
+    if (fwrite_size_t(name_size + 1, fp) != 1)  // 写入NUL
+        return false;
+
+    if (fwrite_size_t(passwd_str_size + 1, fp) != 1)
+        return false;
+
+    ret = fwrite_str(name, name_size + 1, fp);  // 写入NUL
+    if (ret < name_size)
+        goto error;
+
+    ret = fwrite_str(passwd_str, passwd_str_size + 1, fp);
+    if (ret < name_size)
+        goto error;
+
+    if (!put_fwrite_enter(fp))
+        goto error;
+
+    return true;
+    error: return false;
+}
+
+static void freeContent(void) {
+    struct Content *con = content;
+    for (int i = 0; i < content_size; i++) {
+        struct Content *tmp = con->next;
+        free(con->name);
+        free(con->passwd_str);
+        free(con);
+        con = tmp;
+    }
+    content_size = 0;
+    content = NULL;
+}
+
+static h_char *getContentMD5(void) {
+    h_char *md5str = calloc(MD5_STR_LEN + 1, sizeof(h_char));
+    h_char md5_value[MD5_SIZE];
+    struct Content *con = content;
+    MD5_CTX md5;
+
+    MD5Init(&md5);
+    for (int i = 0; i < content_size; i++, con = con->next) {
+        h_char *tmp = calloc(strlen((char *)con->name) + strlen((char *)con->passwd_str) + 1, sizeof(h_char));
+        strcpy((char *)tmp, (char *)con->name);
+        strcat((char *)tmp, (char *)con->passwd_str);
+        MD5Update(&md5, (unsigned char *)tmp, strlen((char *)tmp));
+        free(tmp);
+    }
+    MD5Final(&md5, (unsigned char *)md5_value);
+
+    for(int i = 0; i < MD5_SIZE; i++)
+        snprintf((char *)md5str + i * 2, 2 + 1, "%02x", md5_value[i]);
+    return md5str;
+}
+
+static void atEnd(void) {  // 写入数据
+    FILE *fp = fopen(path, "wb");
+    h_char *md5 = getContentMD5();
+
+    if (!writeFileHead(fp, md5))
+        goto error;
+
+    struct Content *con = content;
+    for (int i = 0; i < content_size; i++, con = con->next) {
+        if (!writeFileInfo(fp, con))
+            goto error;
+    }
+
+    if (!put_fwrite_enter(fp))
+        goto error;
+
+    free(md5);
+    fclose(fp);
+    freeContent();
+    return;
+
+    error:
+    free(md5);
+    fclose(fp);
+    freeContent();
+    fprintf(stderr, "File writing error occurred.\n");
+}
+
+void printContent(void) {
+    struct Content *con = content;
+    for (int i = 0; i < content_size; i++, con = con->next)
+        printf("%d. name: %s, label: %s\n", i, con->name, con->passwd_str);
+}
+
+bool initPasswdInit(const char *path_) {
+    h_char file_md5[MD5_STR_LEN + 1] = {0};
+    h_char *get_md5;
+    FILE *fp = fopen(path_, "rb");
+    path = path_;
+    if (fp == NULL) {
+        content_size = 0;
+        content = NULL;
+        goto re;
+    }
+
+    if (!readFileHead(fp, file_md5))
+        goto error;
+
+    struct Content **con = &content;
+    for (int i = 0; i < content_size; i++, con = &((*con)->next)) {
+        *con = calloc(1, sizeof(struct Content));
+        if (!readFileInfo(fp, *con))
+            goto error;
+    }
+
+    if (get_fread_char(fp) != '\n')
+        goto error;
+
+    get_md5 = getContentMD5();
+    if (strcmp((char *)get_md5, (char *)file_md5) != 0)
+        goto error;
+
+    fclose(fp);
+
+    re:
+    atexit(atEnd);
+    return true;
+
+    error:
+    freeContent();
+    fclose(fp);
+    return false;
+}
+
+void addConnect(char *name, char *passwd_str) {
+    h_char *name_cp = calloc(strlen(name) + 1, sizeof(h_char));
+    h_char *passwd_str_cp = calloc(strlen(passwd_str) + 1, sizeof(h_char));
+    strcpy(name_cp, name);
+    strcpy(passwd_str_cp, passwd_str);
+
+    struct Content *new = calloc(1, sizeof(struct Content));
+    new->name = name_cp;
+    new->passwd_str = passwd_str_cp;
+    new->next = content;
+    content = new;
+    content_size++;
+}
+
+char *findConnect(char *name) {
+    struct Content *con = content;
+    for (int i = 0; i < content_size; i++, con = content->next) {
+        if (!strcmp(con->name, name)) {
+            char *re = calloc(strlen(con->passwd_str) + 1, sizeof(char));
+            strcpy(re, con->passwd_str);
+            return re;
+        }
+    }
+    return NULL;
+}

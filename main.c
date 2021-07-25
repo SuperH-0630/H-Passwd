@@ -14,6 +14,7 @@ struct arg_define arg[] = {
         {.ch='h', .name="help", .flat='h', .argument=no_argument},
         {.ch='s', .name="set-pw", .flat='s', .argument=no_argument},
         {.ch='g', .name="get-pw", .flat='g', .argument=no_argument},
+        {.ch='i', .name="in-file", .flat='i', .argument=no_argument},
 #ifdef INCLUDE_KEY
         {.ch='c', .name="check-key", .flat='c', .argument=must_argument},
 #endif
@@ -24,6 +25,7 @@ enum {
     set_pw,
     get_pw,
 } work = no;
+bool in_file = false;  // 是否在文件中工作
 
 void printVersion(void);
 void printHelp(void);
@@ -66,6 +68,9 @@ int main(int argc, char **argv) {
                     goto what_do;
                 work = get_pw;
                 break;
+            case 'i':
+                in_file = true;
+                break;
             case 0:
                 break;
             case '?':
@@ -104,6 +109,9 @@ int main(int argc, char **argv) {
     if (!isLegalKey(key))
         exit(EXIT_FAILURE);
     initBase64(key);
+
+    if (in_file)
+        initPasswdInit("passwd.hpd");
 
     bool status = false;
     if (work == set_pw)
@@ -179,6 +187,7 @@ bool setPassWd(void) {
     char *account = NULL;
     char *passwd = NULL;
     char *note = NULL;
+    char *in_file_name = NULL;
     char *passwd_str = NULL;
 
     READ_WORD(account, 100, "Your account", ERROR1);
@@ -192,18 +201,31 @@ bool setPassWd(void) {
 
     READ_WORD(note, 100, "Your note", ERROR3);
 
+    if (in_file)
+        READ_WORD(in_file_name, 100, "Account name", ERROR4);
+
     passwd_str = makePasswordString(account, passwd, note);
     if (passwd_str == NULL)
-        goto ERROR4;
+        goto ERROR5;
     printf("***********\n");
     printPasswdStr(account, passwd, note, passwd_str);
 
+    if (in_file) {
+        addConnect(in_file_name, passwd_str);
+        printf("The label has been written to the file. (name: %s)\n", in_file_name);
+    }
+
+    if (in_file_name != NULL)
+        free(in_file_name);
     free(account);
     free(passwd);
     free(note);
     free(passwd_str);
     return true;
 
+    ERROR5:
+    if (in_file_name != NULL)
+        free(in_file_name);
     ERROR4: free(note);
     ERROR3: free(passwd);
     ERROR2: free(account);
@@ -214,9 +236,20 @@ bool getPassWd(void) {
     char *account = NULL;
     char *passwd = NULL;
     char *note = NULL;
+    char *in_file_name = NULL;
     char *passwd_str = NULL;
 
-    READ_WORD(passwd_str, 200, "Your Label", ERROR1);
+    if (in_file) {
+        READ_WORD(in_file_name, 50, "Your Label", ERROR1);
+        passwd_str = findConnect(in_file_name);
+        if (passwd_str == NULL) {
+            fprintf(stderr, "name [%s] not found.", in_file_name);
+            free(in_file_name);
+            return false;
+        }
+        free(in_file_name);
+    } else
+        READ_WORD(passwd_str, 200, "Your Label", ERROR1);
 
     if (!getInfoFromPasswordString(passwd_str, &account, &passwd, &note))
         goto ERROR2;

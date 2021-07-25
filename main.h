@@ -17,6 +17,21 @@
 #define VERSION_INFO "Special characters, special uses."
 #endif
 
+#define MD5_SIZE (16)
+#define MD5_STR_LEN (MD5_SIZE * 2)
+
+struct MD5_CTX {
+    unsigned int count[2];
+    unsigned int state[4];
+    unsigned char buffer[64];
+};
+
+typedef struct MD5_CTX MD5_CTX;
+
+void MD5Init(MD5_CTX *context);
+void MD5Update(MD5_CTX *context,unsigned char *input,unsigned int input_len);
+void MD5Final(MD5_CTX *context,unsigned char digest[16]);
+
 char *base64Encode(char *str);
 char *base64Decode(char *code);
 void initBase64(char *key);
@@ -30,5 +45,9 @@ void printPasswdStr(char *account, char *passwd, char *note, char *passwd_str);
 void randomInit(void);
 unsigned long long getRandom(int min, int max);
 char *randomPasswd(void);
+bool initPasswdInit(const char *path_);
+void addConnect(char *name, char *passwd_str);
+char *findConnect(char *name);
+void printContent(void);
 
 #endif //H_PASSWD_MAIN_H
