@@ -138,11 +138,13 @@ static bool readFileInfo(FILE *fp, struct Content *con) {
     error:
         free(name);
         free(passwd_str);
+        free(date_str);
         return false;
     }
 
     con->name = name;
     con->passwd_str = passwd_str;
+    con->date = date_str;
     return true;
 }
 
@@ -183,16 +185,19 @@ static bool writeFileInfo(FILE *fp, struct Content *con) {
     error: return false;
 }
 
+static struct Content *freeOneConten(struct Content *con) {
+    struct Content *re = con->next;
+    free(con->name);
+    free(con->passwd_str);
+    free(con->date);
+    free(con);
+    return re;
+}
+
 static void freeContent(void) {
     struct Content *con = content;
-    for (int i = 0; i < content_size; i++) {
-        struct Content *tmp = con->next;
-        free(con->name);
-        free(con->passwd_str);
-        free(con->date);
-        free(con);
-        con = tmp;
-    }
+    for (int i = 0; i < content_size; i++)
+        con = freeOneConten(con);
     content_size = 0;
     content = NULL;
 }
@@ -204,8 +209,6 @@ static h_char *getContentMD5(void) {
     MD5_CTX md5;
 
     MD5Init(&md5);
-    if (key_tips != NULL)
-        MD5Update(&md5, (unsigned char *)key_tips, strlen(key_tips));
     for (int i = 0; i < content_size; i++, con = con->next) {
         h_char *tmp = calloc(strlen(con->name) + strlen(con->passwd_str) + strlen(con->date) + 1, sizeof(h_char));
         strcpy((char *)tmp, (char *)con->name);
@@ -221,7 +224,7 @@ static h_char *getContentMD5(void) {
     return md5str;
 }
 
-static void atEnd(void) {  // 写入数据
+void writePasswdFile(void) {  // 写入数据
     FILE *fp = fopen(path, "wb");
     h_char *md5 = getContentMD5();
 
@@ -239,13 +242,11 @@ static void atEnd(void) {  // 写入数据
 
     free(md5);
     fclose(fp);
-    freeContent();
     return;
 
     error:
     free(md5);
     fclose(fp);
-    freeContent();
     fprintf(stderr, "File writing error occurred.\n");
 }
 
@@ -291,7 +292,7 @@ bool initPasswdInit(const char *path_) {
     fclose(fp);
 
     re:
-    atexit(atEnd);
+    atexit(freeContent);
     return true;
 
     error:
@@ -300,7 +301,7 @@ bool initPasswdInit(const char *path_) {
     return false;
 }
 
-void addConnect(char *name, char *passwd_str) {
+void addContent(char *name, char *passwd_str) {
     time_t rawtime;
     char buffer [128];
     time(&rawtime);
@@ -323,7 +324,7 @@ void addConnect(char *name, char *passwd_str) {
     content_size++;
 }
 
-char *findConnect(char *name) {
+char *findContent(char *name) {
     struct Content *con = content;
     for (int i = 0; i < content_size; i++, con = content->next) {
         if (!strcmp(con->name, name)) {
@@ -348,4 +349,33 @@ void setFileTips(char *tips) {
 
     key_tips = calloc(strlen(tips) + 1, sizeof(char));
     strcpy(key_tips, tips);
+}
+
+static struct Content **findContentByIndex(size_t index) {
+    struct Content **re = &content;
+    if (index >= content_size)
+        return NULL;
+
+    for (int i = 0; i < index; i++)
+        re = &((*re)->next);
+
+    return re;
+}
+
+bool delContent(size_t del_index[], size_t size) {  // del_index按从小到大的顺序
+    struct Content **(del_content[DEL_CONTENT_SZIE]);
+
+    for (int i = 0; i < size; i++) {
+        struct Content **con = findContentByIndex(del_index[i]);
+        if (con == NULL)
+            return false;
+        del_content[i] = con;
+    }
+
+    for (int i = 0; i < size; i++) {
+        *del_content[i] = freeOneConten(*(del_content[i]));  // 删除指向的content，并且指向该content的下一个content
+        content_size--;
+    }
+
+    return true;
 }

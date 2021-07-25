@@ -20,6 +20,8 @@
 #define MD5_SIZE (16)
 #define MD5_STR_LEN (MD5_SIZE * 2)
 
+#define DEL_CONTENT_SZIE (20)
+
 struct MD5_CTX {
     unsigned int count[2];
     unsigned int state[4];
@@ -46,10 +48,12 @@ void randomInit(void);
 unsigned long long getRandom(int min, int max);
 char *randomPasswd(void);
 bool initPasswdInit(const char *path_);
-void addConnect(char *name, char *passwd_str);
-char *findConnect(char *name);
+void addContent(char *name, char *passwd_str);
+char *findContent(char *name);
 void printFileTips(void);
 void setFileTips(char *tips);
 void printContent(void);
+void writePasswdFile(void);
+bool delContent(size_t del_index[], size_t size);
 
 #endif //H_PASSWD_MAIN_H

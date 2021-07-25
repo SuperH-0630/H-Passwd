@@ -23,6 +23,7 @@ struct arg_define arg[] = {
         {.ch='t', .name="tips", .flat='t', .argument=no_argument},
         {.ch='?', .name="set-tips", .flat='w', .argument=no_argument},
         {.ch='p', .name="print-label", .flat='p', .argument=no_argument},
+        {.ch='d', .name="delete", .flat='d', .argument=no_argument},
 #endif
         {.ch=0},
 };
@@ -30,6 +31,7 @@ enum {
     no = 0,
     set_pw,
     get_pw,
+    del_pw,
 } work = no;
 bool in_file = false;  // 是否在文件中工作
 bool print_passwd = false;  // 是否打印content
@@ -38,6 +40,7 @@ void printVersion(void);
 void printHelp(void);
 bool setPassWd(void);
 bool getPassWd(void);
+bool delPassWd(void);
 char *getTipsFromStdin(void);
 
 int main(int argc, char **argv) {
@@ -78,6 +81,11 @@ int main(int argc, char **argv) {
                 if (work != no)
                     goto what_do;
                 work = get_pw;
+                break;
+            case 'd':
+                if (work != no)
+                    goto what_do;
+                work = del_pw;
                 break;
             case 'i':
                 in_file = true;
@@ -160,6 +168,13 @@ int main(int argc, char **argv) {
         status = setPassWd();
     else if (work == get_pw)
         status = getPassWd();
+    else if (work == del_pw) {
+        if (!in_file) {
+            fprintf(stderr, "The --delete option relies on the -i option.\n");
+            exit(EXIT_FAILURE);
+        }
+        status = delPassWd();
+    }
     else if (in_file && print_passwd)
         printContent();
 
@@ -168,6 +183,9 @@ int main(int argc, char **argv) {
 #endif
     if (!status)
         return EXIT_FAILURE;
+
+    if (in_file)
+        writePasswdFile();  // 写入数据
     return EXIT_SUCCESS;
 
     little_exit:
@@ -226,7 +244,7 @@ void printHelp(void) {
         fprintf(stderr, key_name " too long for stdin.\n"); \
         goto re; \
     } else {*strchr((key), '\n') = 0;} \
-    }while(0)
+}while(0)
 
 bool setPassWd(void) {
     char *account = NULL;
@@ -258,7 +276,7 @@ bool setPassWd(void) {
     printPasswdStr(account, passwd, note, passwd_str);
 
     if (in_file) {
-        addConnect(in_file_name, passwd_str);
+        addContent(in_file_name, passwd_str);
         printf("The label has been written to the file. (name: %s)\n", in_file_name);
         if (print_passwd)
             printContent();
@@ -293,7 +311,7 @@ bool getPassWd(void) {
 
     if (in_file && !print_passwd) {
         READ_WORD(in_file_name, 50, "Your Label", ERROR1);
-        passwd_str = findConnect(in_file_name);
+        passwd_str = findContent(in_file_name);
         if (passwd_str == NULL) {
             fprintf(stderr, "name [%s] not found.", in_file_name);
             free(in_file_name);
@@ -316,6 +334,47 @@ bool getPassWd(void) {
 
     ERROR2: free(passwd_str);
     ERROR1: return false;
+}
+
+bool delPassWd(void) {
+    int i;
+    int max = -1;
+    size_t del_index[DEL_CONTENT_SZIE] = {0};
+
+    if (print_passwd)
+        printContent();
+
+    printf("Enter the serial number of the label you want to delete (starting from 0)\n"
+           "Enter -1. A maximum of %d parameters can be entered.\n", DEL_CONTENT_SZIE);
+
+    for (i = 0; i < DEL_CONTENT_SZIE; i++) {
+        int index = 0;
+        if (scanf( "%d", &index) != 1)
+            break;
+        if (index == -1)
+            break;
+        if (index <= max) {
+            printf("Please enter in descending order, skipped %d.", index);
+            continue;
+        }
+
+        printf("get index: %d\n", index);
+        del_index[i] = index;
+        max = index;
+    }
+
+    printf(" I am out\n");
+    int ch;
+    while ((ch = getc(stdin)) != '\n' && ch != EOF)
+        continue;
+
+    printf(" I am out 2");
+    if (!delContent(del_index, i)) {
+        fprintf(stderr, "Delete error\n");
+        return false;
+    }
+
+    return true;
 }
 
 char *getTipsFromStdin(void) {
