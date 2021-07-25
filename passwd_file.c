@@ -2,9 +2,10 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <fcntl.h>
 #include <inttypes.h>
 #include <time.h>
+
+#define COPY_SIZE (1024)
 
 typedef uint64_t h_size_t;
 typedef char h_char;
@@ -202,6 +203,11 @@ static void freeContent(void) {
     content = NULL;
 }
 
+static void atEnd(void) {
+    freeContent();
+    free(key_tips);
+}
+
 static h_char *getContentMD5(void) {
     h_char *md5str = calloc(MD5_STR_LEN + 1, sizeof(h_char));
     h_char md5_value[MD5_SIZE];
@@ -228,10 +234,10 @@ static bool writePasswdFileFinal(void) {
     FILE *from = fopen("tmp.bak.hdp", "rb");
     FILE *to = fopen(path, "wb");
     size_t ret1, ret2;
-    char buf[1024];
+    char buf[COPY_SIZE + 1] = {0};
 
     do {
-        ret1 = fread(buf, sizeof(char), 1024, from);
+        ret1 = fread(buf, sizeof(char), COPY_SIZE, from);
         ret2 = fwrite(buf, sizeof(char), ret1, to);
 
         if (ret1 != ret2) {
@@ -241,7 +247,7 @@ static bool writePasswdFileFinal(void) {
             return false;
         }
 
-    } while (ret1 == 1024);
+    } while (ret1 == COPY_SIZE);
 
     fclose(from);
     fclose(to);
@@ -296,7 +302,7 @@ void printContent(void) {
 
 bool initPasswdInit(const char *path_) {
     h_char file_md5[MD5_STR_LEN + 1] = {0};
-    h_char *get_md5;
+    h_char *get_md5 = NULL;
     FILE *fp = fopen(path_, "rb");
     path = path_;
     if (fp == NULL) {
@@ -319,13 +325,16 @@ bool initPasswdInit(const char *path_) {
         goto error;
 
     get_md5 = getContentMD5();
-    if (strcmp((char *)get_md5, (char *)file_md5) != 0)
+    if (strcmp((char *)get_md5, (char *)file_md5) != 0) {
+        free(get_md5);
         goto error;
+    }
 
+    free(get_md5);
     fclose(fp);
 
     re:
-    atexit(freeContent);
+    atexit(atEnd);
     return true;
 
     error:
