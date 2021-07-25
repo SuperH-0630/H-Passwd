@@ -48,6 +48,8 @@ char *randomPasswd(void);
 bool initPasswdInit(const char *path_);
 void addConnect(char *name, char *passwd_str);
 char *findConnect(char *name);
+void printFileTips(void);
+void setFileTips(char *tips);
 void printContent(void);
 
 #endif //H_PASSWD_MAIN_H

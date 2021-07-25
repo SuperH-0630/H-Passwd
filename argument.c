@@ -42,13 +42,13 @@ static int getReturn(struct arg_define *arg) {
         case no_argument:
             return arg->flat;
         case can_argument:
-            if (!exchange_one && (status != continue_flat || argv_[opt_i][continue_index + 1] == '\0') && opt_i + 1 < argc_) {
+            if (!exchange_one && (status != continue_flat || argv_[opt_i][continue_index + 1] == '\0') && opt_i + 1 < argc_ && argv_[opt_i + 1][0] != '-') {
                 opt_val = argv_[opt_i + 1];
             } else
                 opt_val = NULL;
             return arg->flat;
         case must_argument:
-            if (!exchange_one && (status != continue_flat && argv_[opt_i][continue_index + 1] == '\0') || opt_i + 1 >= argc_) {
+            if (!exchange_one && (status != continue_flat && argv_[opt_i][continue_index + 1] == '\0') || opt_i + 1 >= argc_ && argv_[opt_i + 1][0] != '-') {
                 fprintf(stderr, "-%c --%s : Lack of argument.\n", arg->ch, arg->name);
                 return '?';
             }

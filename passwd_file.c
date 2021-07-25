@@ -8,6 +8,7 @@
 typedef uint64_t h_size_t;
 typedef char h_char;
 const char *path = NULL;  // 文件地址
+h_char *key_tips = NULL;
 
 struct Content {
     h_char *name;
@@ -49,11 +50,20 @@ static bool put_fwrite_enter(FILE *fp) {
 
 static bool readFileHead(FILE *fp, h_char *file_md5) {
     size_t ret;
+    h_size_t tips_size;
     ret = fread_str(file_md5, MD5_STR_LEN + 1, fp);  // 先读取md5码, 包括NUL
     if (ret < MD5_STR_LEN + 1)
         return false;
 
     if (fread_size_t(&content_size, fp) != 1)
+        return false;
+
+    if (fread_size_t(&tips_size, fp) != 1)
+        return false;
+
+    key_tips = calloc(tips_size, sizeof(char));
+    ret = fread_str(key_tips, tips_size, fp);
+    if (ret < tips_size)
         return false;
 
     if (get_fread_char(fp) != '\n')
@@ -64,11 +74,22 @@ static bool readFileHead(FILE *fp, h_char *file_md5) {
 
 static bool writeFileHead(FILE *fp, h_char *md5str) {
     size_t ret;
+    h_char *tips = "There isn't tips.";
+    if (key_tips != NULL)
+        tips = key_tips;
+
     ret = fwrite_str(md5str, MD5_STR_LEN + 1, fp);  // 写入NUL
     if (ret < MD5_STR_LEN + 1)
         return false;
 
     if (fwrite_size_t(content_size, fp) != 1)
+        return false;
+
+    if (fwrite_size_t(strlen(tips) + 1, fp) != 1)
+        return false;
+
+    ret = fwrite_str(tips, strlen(tips) + 1, fp);  // 写入NULL
+    if (ret < strlen(tips) + 1)
         return false;
 
     if (!put_fwrite_enter(fp))
@@ -205,8 +226,13 @@ static void atEnd(void) {  // 写入数据
 
 void printContent(void) {
     struct Content *con = content;
+    printf("********************\n");
+    printf("Print all label in file.\n");
+    printf("total: %d\n", content_size);
+    printf("--------------------\n", content_size);
     for (int i = 0; i < content_size; i++, con = con->next)
         printf("%d. name: %s, label: %s\n", i, con->name, con->passwd_str);
+    printf("********************\n");
 }
 
 bool initPasswdInit(const char *path_) {
@@ -273,4 +299,19 @@ char *findConnect(char *name) {
         }
     }
     return NULL;
+}
+
+void printFileTips(void) {
+    if (key_tips != NULL)
+        printf("Tips in file: %s\n", key_tips);
+    else
+        printf("Tips in file: There isn't tips.");
+}
+
+void setFileTips(char *tips) {
+    if (key_tips != NULL)
+        free(key_tips);
+
+    key_tips = calloc(strlen(tips) + 1, sizeof(char));
+    strcpy(key_tips, tips);
 }

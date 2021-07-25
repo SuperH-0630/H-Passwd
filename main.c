@@ -8,15 +8,21 @@ char *key = NULL;
 char *key = INCLUDE_KEY;
 #endif
 
+#define TIPS_SIZE (30)
+
 char *name = NULL;
 struct arg_define arg[] = {
         {.ch='v', .name="version", .flat='v', .argument=no_argument},
         {.ch='h', .name="help", .flat='h', .argument=no_argument},
         {.ch='s', .name="set-pw", .flat='s', .argument=no_argument},
         {.ch='g', .name="get-pw", .flat='g', .argument=no_argument},
-        {.ch='i', .name="in-file", .flat='i', .argument=no_argument},
 #ifdef INCLUDE_KEY
         {.ch='c', .name="check-key", .flat='c', .argument=must_argument},
+#else
+        {.ch='i', .name="in-file", .flat='i', .argument=no_argument},
+        {.ch='t', .name="tips", .flat='t', .argument=no_argument},
+        {.ch='?', .name="set-tips", .flat='w', .argument=no_argument},
+        {.ch='p', .name="print-label", .flat='p', .argument=no_argument},
 #endif
         {.ch=0},
 };
@@ -26,13 +32,18 @@ enum {
     get_pw,
 } work = no;
 bool in_file = false;  // 是否在文件中工作
+bool print_passwd = false;  // 是否打印content
 
 void printVersion(void);
 void printHelp(void);
 bool setPassWd(void);
 bool getPassWd(void);
+char *getTipsFromStdin(void);
 
 int main(int argc, char **argv) {
+    bool print_tips = false;
+    bool set_tips = false;
+
     printf("Welecome to use H-Password.\n");
 #ifdef INCLUDE_KEY
     printf("Exclusive custom user: %s\n", UserName);
@@ -71,6 +82,19 @@ int main(int argc, char **argv) {
             case 'i':
                 in_file = true;
                 break;
+            case 't':
+#ifdef INCLUDE_KEY
+                printf("Tips: %s\n", KeyTips);
+#else
+                print_tips = true;
+#endif
+                break;
+            case 'w':
+                set_tips = true;
+                break;
+            case 'p':
+                print_passwd = true;
+                break;
             case 0:
                 break;
             case '?':
@@ -79,16 +103,18 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (work == no) {
+    if (work == no && print_tips == false && set_tips == false && print_passwd == false) {
         what_do:
         fprintf(stderr, "What should I do?\n");
+        fflush(stderr);
         printHelp();
         exit(EXIT_FAILURE);
     }
 
-    if (argc - opt_i > 1)
+    if (argc - opt_i > 1) {
+        fprintf(stderr, "Too many argument.");
         exit(EXIT_FAILURE);
-    else if (argc - opt_i == 1) {
+    } else if (argc - opt_i == 1) {
         if (key != NULL)
             exit(EXIT_FAILURE);
         key = calloc(strlen(argv[opt_i]) + 1, sizeof(char ));
@@ -110,14 +136,32 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     initBase64(key);
 
-    if (in_file)
-        initPasswdInit("passwd.hpd");
+    if (in_file) {
+        if (!initPasswdInit("passwd.hpd")) {
+            fprintf(stderr, "Unable to open HPD file.\n");
+            exit(EXIT_FAILURE);
+        }
+        if (print_tips)
+            printFileTips();
 
-    bool status = false;
+        if (set_tips) {
+            char *tips = getTipsFromStdin();
+            setFileTips(tips);
+            free(tips);
+        }
+
+    } else if (print_tips || set_tips || print_passwd) {
+        fprintf(stderr, "The -t/-p/--set-tips option relies on the -i option.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    bool status = true;
     if (work == set_pw)
         status = setPassWd();
-    else
+    else if (work == get_pw)
         status = getPassWd();
+    else if (in_file && print_passwd)
+        printContent();
 
 #ifndef INCLUDE_KEY
     free(key);
@@ -166,7 +210,8 @@ void printHelp(void) {
            "length must not exceed 100.\n\n");
 
     printf("Length limit:\n");
-    printf("Key: [%d - %d]\n\n", KEY_MIN_LEN, KEY_MAX_LEN);
+    printf("Key: [%d - %d]\n", KEY_MIN_LEN, KEY_MAX_LEN);
+    printf("Tips: [0 - %d]\n\n", TIPS_SIZE);
 
     printf("Name origin:\n");
     printf("I'm super Huan. H in h-password is Huan in superhuan. \n"
@@ -207,12 +252,16 @@ bool setPassWd(void) {
     passwd_str = makePasswordString(account, passwd, note);
     if (passwd_str == NULL)
         goto ERROR5;
-    printf("***********\n");
+
+    printf("********************\n");
+    fflush(stdout);
     printPasswdStr(account, passwd, note, passwd_str);
 
     if (in_file) {
         addConnect(in_file_name, passwd_str);
         printf("The label has been written to the file. (name: %s)\n", in_file_name);
+        if (print_passwd)
+            printContent();
     }
 
     if (in_file_name != NULL)
@@ -239,7 +288,10 @@ bool getPassWd(void) {
     char *in_file_name = NULL;
     char *passwd_str = NULL;
 
-    if (in_file) {
+    if (in_file && print_passwd)
+        printContent();
+
+    if (in_file && !print_passwd) {
         READ_WORD(in_file_name, 50, "Your Label", ERROR1);
         passwd_str = findConnect(in_file_name);
         if (passwd_str == NULL) {
@@ -264,4 +316,21 @@ bool getPassWd(void) {
 
     ERROR2: free(passwd_str);
     ERROR1: return false;
+}
+
+char *getTipsFromStdin(void) {
+    char *tips = calloc(TIPS_SIZE + 1, sizeof(char));
+    char *enter_flat;
+
+    printf("Enter the tips [< %d]:", TIPS_SIZE);
+    fgets(tips, TIPS_SIZE + 1, stdin);
+
+    if ((enter_flat = strchr(tips, '\n')) == NULL) {
+        fprintf(stderr, "Tips too long [> %d].\n", TIPS_SIZE);
+        free(tips);
+        return NULL;
+    }
+
+    *enter_flat = 0;
+    return tips;
 }
