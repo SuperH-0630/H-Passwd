@@ -16,14 +16,15 @@ struct arg_define arg[] = {
         {.ch='h', .name="help", .flat='h', .argument=no_argument},
         {.ch='s', .name="set-pw", .flat='s', .argument=no_argument},
         {.ch='g', .name="get-pw", .flat='g', .argument=no_argument},
+        {.ch='t', .name="tips", .flat='t', .argument=no_argument},
 #ifdef INCLUDE_KEY
         {.ch='c', .name="check-key", .flat='c', .argument=must_argument},
 #else
         {.ch='i', .name="in-file", .flat='i', .argument=no_argument},
-        {.ch='t', .name="tips", .flat='t', .argument=no_argument},
         {.ch='?', .name="set-tips", .flat='w', .argument=no_argument},
         {.ch='p', .name="print-label", .flat='p', .argument=no_argument},
         {.ch='d', .name="delete", .flat='d', .argument=no_argument},
+        {.ch='?', .name="delete-old", .flat='o', .argument=no_argument},
 #endif
         {.ch=0},
 };
@@ -35,6 +36,7 @@ enum {
 } work = no;
 bool in_file = false;  // 是否在文件中工作
 bool print_passwd = false;  // 是否打印content
+bool del_old = false;
 
 void printVersion(void);
 void printHelp(void);
@@ -86,6 +88,9 @@ int main(int argc, char **argv) {
                 if (work != no)
                     goto what_do;
                 work = del_pw;
+                break;
+            case 'o':
+                del_old = true;
                 break;
             case 'i':
                 in_file = true;
@@ -184,8 +189,10 @@ int main(int argc, char **argv) {
     if (!status)
         return EXIT_FAILURE;
 
-    if (in_file)
-        writePasswdFile();  // 写入数据
+    if (in_file) {
+        if (!writePasswdFile())  // 写入数据
+            return EXIT_FAILURE;
+    }
     return EXIT_SUCCESS;
 
     little_exit:
@@ -276,6 +283,9 @@ bool setPassWd(void) {
     printPasswdStr(account, passwd, note, passwd_str);
 
     if (in_file) {
+        if (del_old)
+            delContentByName(in_file_name);
+
         addContent(in_file_name, passwd_str);
         printf("The label has been written to the file. (name: %s)\n", in_file_name);
         if (print_passwd)

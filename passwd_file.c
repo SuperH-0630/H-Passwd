@@ -224,8 +224,32 @@ static h_char *getContentMD5(void) {
     return md5str;
 }
 
-void writePasswdFile(void) {  // 写入数据
-    FILE *fp = fopen(path, "wb");
+static bool writePasswdFileFinal(void) {
+    FILE *from = fopen("tmp.bak.hdp", "rb");
+    FILE *to = fopen(path, "wb");
+    size_t ret1, ret2;
+    char buf[1024];
+
+    do {
+        ret1 = fread(buf, sizeof(char), 1024, from);
+        ret2 = fwrite(buf, sizeof(char), ret1, to);
+
+        if (ret1 != ret2) {
+            fclose(from);
+            fclose(to);
+            fprintf(stderr, "Write file error.\n");
+            return false;
+        }
+
+    } while (ret1 == 1024);
+
+    fclose(from);
+    fclose(to);
+    return true;
+}
+
+bool writePasswdFile(void) {  // 写入数据
+    FILE *fp = fopen("tmp.bak.hdp", "wb");
     h_char *md5 = getContentMD5();
 
     if (!writeFileHead(fp, md5))
@@ -242,20 +266,29 @@ void writePasswdFile(void) {  // 写入数据
 
     free(md5);
     fclose(fp);
-    return;
+
+    if (!writePasswdFileFinal()) {
+        remove("tmp.bak.hdp");  // 删除文件
+        return false;
+    }
+
+    remove("tmp.bak.hdp");  // 删除文件
+    return true;
 
     error:
     free(md5);
     fclose(fp);
+    remove("tmp.bak.hdp");  // 删除文件
     fprintf(stderr, "File writing error occurred.\n");
+    return false;
 }
 
 void printContent(void) {
     struct Content *con = content;
     printf("********************\n");
     printf("Print all label in file.\n");
-    printf("total: %d\n", content_size);
-    printf("--------------------\n", content_size);
+    printf("total: %lu\n", content_size);
+    printf("--------------------\n");
     for (int i = 0; i < content_size; i++, con = con->next)
         printf("%d. %s : name: %s, label: %s\n", i, con->date, con->name, con->passwd_str);
     printf("********************\n");
@@ -378,4 +411,15 @@ bool delContent(size_t del_index[], size_t size) {  // del_index按从小到大�
     }
 
     return true;
+}
+
+void delContentByName(char *name) {
+    struct Content **con = &content;
+    while(*con != NULL) {
+        if (!strcmp((*con)->name, name)) {
+            *con = freeOneConten(*con);
+            content_size--;
+        } else
+            con = &((*con)->next);
+    }
 }

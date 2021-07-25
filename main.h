@@ -53,7 +53,8 @@ char *findContent(char *name);
 void printFileTips(void);
 void setFileTips(char *tips);
 void printContent(void);
-void writePasswdFile(void);
+bool writePasswdFile(void);
 bool delContent(size_t del_index[], size_t size);
+void delContentByName(char *name);
 
 #endif //H_PASSWD_MAIN_H
