@@ -2,13 +2,21 @@
 #include "argument.h"
 #include <stdio.h>
 
+#ifndef INCLUDE_KEY
 char *key = NULL;
+#else
+char *key = INCLUDE_KEY;
+#endif
+
 char *name = NULL;
 struct arg_define arg[] = {
         {.ch='v', .name="version", .flat='v', .argument=no_argument},
         {.ch='h', .name="help", .flat='h', .argument=no_argument},
         {.ch='s', .name="set-pw", .flat='s', .argument=no_argument},
         {.ch='g', .name="get-pw", .flat='g', .argument=no_argument},
+#ifdef INCLUDE_KEY
+        {.ch='c', .name="check-key", .flat='c', .argument=must_argument},
+#endif
         {.ch=0},
 };
 enum {
@@ -23,6 +31,10 @@ bool setPassWd(void);
 bool getPassWd(void);
 
 int main(int argc, char **argv) {
+    printf("Welecome to use H-Password.\n");
+#ifdef INCLUDE_KEY
+    printf("Exclusive custom user: %s\n", UserName);
+#endif
     name = argv[0];
     randomInit();
     initOpt(true, argc, argv, arg);
@@ -31,18 +43,27 @@ int main(int argc, char **argv) {
         switch (opt_flat) {
             case 'h':
                 printHelp();
-                exit(EXIT_SUCCESS);
+                goto little_exit;
             case 'v':
                 printVersion();
-                exit(EXIT_SUCCESS);
+                goto little_exit;
+#ifdef INCLUDE_KEY
+            case 'c':
+                if (strcmp(key, opt_val) != 0) {
+                    printf("Key verification failed.\n");
+                    printf("Tips: %s\n", KeyTips);
+                } else
+                    printf("Key verification passed.\n");
+                goto little_exit;
+#endif
             case 's':
                 if (work != no)
-                    exit(EXIT_FAILURE);
+                    goto what_do;
                 work = set_pw;
                 break;
             case 'g':
                 if (work != no)
-                    exit(EXIT_FAILURE);
+                    goto what_do;
                 work = get_pw;
                 break;
             case 0:
@@ -54,6 +75,7 @@ int main(int argc, char **argv) {
     }
 
     if (work == no) {
+        what_do:
         fprintf(stderr, "What should I do?\n");
         printHelp();
         exit(EXIT_FAILURE);
@@ -68,13 +90,15 @@ int main(int argc, char **argv) {
         strcpy(key, argv[opt_i]);
         opt_i++;
     } else if (key == NULL) {
-        printf("Please Enter The Key:\n");
+        char *enter_flat = NULL;
+        printf("Please Enter The Key:");
         key = calloc(KEY_MAX_LEN + 10, sizeof(char ));
         fgets(key, KEY_MAX_LEN + 10, stdin);
-        if (strchr(key, '\n') == NULL) {
+        if ((enter_flat = strchr(key, '\n')) == NULL) {
             fprintf(stderr, "Key too long for stdin.\n");
             exit(EXIT_FAILURE);
         }
+        *enter_flat = 0;
     }
 
     if (!isLegalKey(key))
@@ -87,10 +111,18 @@ int main(int argc, char **argv) {
     else
         status = getPassWd();
 
+#ifndef INCLUDE_KEY
     free(key);
+#endif
     if (!status)
         return EXIT_FAILURE;
     return EXIT_SUCCESS;
+
+    little_exit:
+    if (argc != 2)
+        return EXIT_FAILURE;
+    return EXIT_SUCCESS;
+
 }
 
 void printVersion(void) {
@@ -104,6 +136,12 @@ void printHelp(void) {
     printf(" -h --help          Show help.\n");
     printf(" -s --set-pw        Set Password.\n");
     printf(" -g --get-pw        Get Password.\n\n");
+
+#ifdef INCLUDE_KEY
+    printf("!!! Exclusive custom user: %s !!!\n", UserName);
+    printf("!!! Key has been written. !!!\n");
+    printf("!!! You can check through the parameter --check-key (or -c). !!!\n\n");
+#endif
 
     printf("How to use?\n");
     printf( "     You can choose a key and remember it. \n"
@@ -157,6 +195,7 @@ bool setPassWd(void) {
     passwd_str = makePasswordString(account, passwd, note);
     if (passwd_str == NULL)
         goto ERROR4;
+    printf("***********\n");
     printPasswdStr(account, passwd, note, passwd_str);
 
     free(account);
@@ -181,6 +220,7 @@ bool getPassWd(void) {
 
     if (!getInfoFromPasswordString(passwd_str, &account, &passwd, &note))
         goto ERROR2;
+    printf("***********\n");
     printInfo(account, passwd, note);
 
     free(account);
