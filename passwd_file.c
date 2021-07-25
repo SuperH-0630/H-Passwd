@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <time.h>
 
 typedef uint64_t h_size_t;
 typedef char h_char;
@@ -13,6 +14,7 @@ h_char *key_tips = NULL;
 struct Content {
     h_char *name;
     h_char *passwd_str;
+    h_char *date;
     struct Content *next;
 };  // 链表
 
@@ -102,8 +104,10 @@ static bool readFileInfo(FILE *fp, struct Content *con) {
     size_t ret;
     h_size_t name_size;
     h_size_t passwd_str_size;
+    h_size_t date_size;
     h_char *name = NULL;
     h_char *passwd_str = NULL;
+    h_char *date_str = NULL;
 
     if (fread_size_t(&name_size, fp) != 1)
         return false;
@@ -111,15 +115,23 @@ static bool readFileInfo(FILE *fp, struct Content *con) {
     if (fread_size_t(&passwd_str_size, fp) != 1)
         return false;
 
+    if (fread_size_t(&date_size, fp) != 1)
+        return false;
+
     name = calloc(name_size, sizeof(h_char));  // 包含 NUL
     passwd_str = calloc(passwd_str_size, sizeof(h_char));  // 包含 NUL
+    date_str = calloc(date_size, sizeof(h_char));  // 包含 NUL
 
     ret = fread_str(name, name_size, fp);
     if (ret < name_size)
         goto error;
 
     ret = fread_str(passwd_str, passwd_str_size, fp);
-    if (ret < name_size)
+    if (ret < passwd_str_size)
+        goto error;
+
+    ret = fread_str(date_str, date_size, fp);
+    if (ret < date_size)
         goto error;
 
     if (get_fread_char(fp) != '\n') {
@@ -138,8 +150,10 @@ static bool writeFileInfo(FILE *fp, struct Content *con) {
     size_t ret;
     h_char *name = con->name;
     h_char *passwd_str = con->passwd_str;
-    h_size_t passwd_str_size = strlen((char *)passwd_str);
+    h_char *date_str = con->date;
     h_size_t name_size = strlen((char *)name);
+    h_size_t passwd_str_size = strlen((char *)passwd_str);
+    h_size_t date_size = strlen((char *)date_str);
 
     if (fwrite_size_t(name_size + 1, fp) != 1)  // 写入NUL
         return false;
@@ -147,12 +161,19 @@ static bool writeFileInfo(FILE *fp, struct Content *con) {
     if (fwrite_size_t(passwd_str_size + 1, fp) != 1)
         return false;
 
+    if (fwrite_size_t(date_size + 1, fp) != 1)
+        return false;
+
     ret = fwrite_str(name, name_size + 1, fp);  // 写入NUL
     if (ret < name_size)
         goto error;
 
     ret = fwrite_str(passwd_str, passwd_str_size + 1, fp);
-    if (ret < name_size)
+    if (ret < passwd_str_size)
+        goto error;
+
+    ret = fwrite_str(date_str, date_size + 1, fp);
+    if (ret < date_size)
         goto error;
 
     if (!put_fwrite_enter(fp))
@@ -168,6 +189,7 @@ static void freeContent(void) {
         struct Content *tmp = con->next;
         free(con->name);
         free(con->passwd_str);
+        free(con->date);
         free(con);
         con = tmp;
     }
@@ -182,10 +204,13 @@ static h_char *getContentMD5(void) {
     MD5_CTX md5;
 
     MD5Init(&md5);
+    if (key_tips != NULL)
+        MD5Update(&md5, (unsigned char *)key_tips, strlen(key_tips));
     for (int i = 0; i < content_size; i++, con = con->next) {
-        h_char *tmp = calloc(strlen((char *)con->name) + strlen((char *)con->passwd_str) + 1, sizeof(h_char));
+        h_char *tmp = calloc(strlen(con->name) + strlen(con->passwd_str) + strlen(con->date) + 1, sizeof(h_char));
         strcpy((char *)tmp, (char *)con->name);
         strcat((char *)tmp, (char *)con->passwd_str);
+        strcat((char *)tmp, (char *)con->date);
         MD5Update(&md5, (unsigned char *)tmp, strlen((char *)tmp));
         free(tmp);
     }
@@ -231,7 +256,7 @@ void printContent(void) {
     printf("total: %d\n", content_size);
     printf("--------------------\n", content_size);
     for (int i = 0; i < content_size; i++, con = con->next)
-        printf("%d. name: %s, label: %s\n", i, con->name, con->passwd_str);
+        printf("%d. %s : name: %s, label: %s\n", i, con->date, con->name, con->passwd_str);
     printf("********************\n");
 }
 
@@ -276,14 +301,23 @@ bool initPasswdInit(const char *path_) {
 }
 
 void addConnect(char *name, char *passwd_str) {
+    time_t rawtime;
+    char buffer [128];
+    time(&rawtime);
+    strftime(buffer,sizeof(buffer), "%Y/%m/%d-%H:%M:%S", localtime(&rawtime));
+
     h_char *name_cp = calloc(strlen(name) + 1, sizeof(h_char));
     h_char *passwd_str_cp = calloc(strlen(passwd_str) + 1, sizeof(h_char));
+    h_char *date_str = calloc(strlen(buffer) + 1, sizeof(h_char));
     strcpy(name_cp, name);
     strcpy(passwd_str_cp, passwd_str);
+    strcpy(date_str, buffer);
+
 
     struct Content *new = calloc(1, sizeof(struct Content));
     new->name = name_cp;
     new->passwd_str = passwd_str_cp;
+    new->date = date_str;
     new->next = content;
     content = new;
     content_size++;
