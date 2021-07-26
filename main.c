@@ -285,6 +285,9 @@ void printHelp(void) {
     printf("I'm super Huan. H in h-password is Huan in SuperHuan. \n"
            "Password means that the software is password software.\n\n");
 
+    printf("H-password is an open source project. Bug reports, suggestions, websites:\n");
+    printf("https://github.com/SuperH-0630/H-Passwd\n");
+
 }
 
 #define GRAMMAR_INFO    "File format:\n" \
