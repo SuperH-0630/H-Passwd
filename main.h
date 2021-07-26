@@ -22,6 +22,16 @@
 
 #define DEL_CONTENT_SZIE (20)
 
+static void *s_calloc(size_t n, size_t s) {
+   void *new = calloc(n, s);
+   if (new == NULL)
+       exit(EXIT_FAILURE);
+   return new;
+}
+
+#define free(p) (((p) != NULL ? free(p) : NULL), ((p) = NULL))
+#define calloc(n, s) (s_calloc(n, s))
+
 struct MD5_CTX {
     unsigned int count[2];
     unsigned int state[4];

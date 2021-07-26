@@ -300,7 +300,7 @@ void printContent(void) {
 #endif
     printf("--------------------\n");
     for (int i = 0; i < content_size; i++, con = con->next)
-        printf("%d. %s : name: %s, label: %s\n", i, con->date, con->name, con->passwd_str);
+        printf("%d. %s : program_name: %s, label: %s\n", i, con->date, con->name, con->passwd_str);
     printf("********************\n");
 }
 
