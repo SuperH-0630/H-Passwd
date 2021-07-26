@@ -29,7 +29,7 @@ static void *s_calloc(size_t n, size_t s) {
    return new;
 }
 
-#define free(p) (((p) != NULL ? free(p) : NULL), ((p) = NULL))
+#define free(p) (((p) != NULL ? (free(p), NULL) : NULL), ((p) = NULL))
 #define calloc(n, s) (s_calloc(n, s))
 
 struct MD5_CTX {
